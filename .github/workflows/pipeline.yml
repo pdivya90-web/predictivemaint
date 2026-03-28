@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      HF_TOKEN: ${{ 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 }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -51,7 +51,7 @@ jobs:
             --output predictive_maintenance_executed.ipynb \
             predictive_maintenance_notebook.ipynb
         env:
-          HF_TOKEN: ${{ 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 }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Verify model artefact
         run: |
