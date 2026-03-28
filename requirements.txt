@@ -1,0 +1,9 @@
+
+pandas
+scikit-learn
+xgboost
+huggingface_hub
+fastapi
+uvicorn
+pydantic
+joblib
