@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps
+# COPY source = filename as it exists IN the Space repo
+COPY requirements.txt .
+RUN pip install --no-cache-dir numpy==1.26.4
+RUN pip install --no-cache-dir pandas==2.1.4
+RUN pip install --no-cache-dir scikit-learn==1.4.2
+RUN pip install --no-cache-dir xgboost==2.0.3
+RUN pip install --no-cache-dir joblib==1.3.2 requests==2.31.0
+RUN pip install --no-cache-dir streamlit==1.32.2
+# Copy application
+COPY app.py .
+
+# HF Spaces requires port 7860
+EXPOSE 7860
+
+# Streamlit config for HF Spaces
+ENV STREAMLIT_SERVER_PORT=7860 \
+    STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+    STREAMLIT_SERVER_HEADLESS=true \
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
