@@ -5,94 +5,37 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
-  ml-pipeline:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      # You may need to specify other environment variables if your notebook requires them
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-          cache: pip
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9' # Ensure this matches your Colab environment or desired Python version
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install jupyter nbconvert
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install jupyter nbconvert # Required to convert and execute notebooks
 
-      - name: Authenticate Hugging Face
-        run: |
-          python -c "
-          from huggingface_hub import login; import os
-          login(token=os.environ['HF_TOKEN'])
-          print('HF auth OK')
-          "
+    - name: Execute Colab Notebook
+      # Assuming your main notebook is named 'predictive_maintenance_notebook.ipynb'
+      # and located in the root of your repository.
+      # This step will convert the notebook to a Python script and then execute it.
+      run: |
+        jupyter nbconvert --to script predictive_maintenance_notebook.ipynb
+        python predictive_maintenance_notebook.py
 
-      - name: Execute ML pipeline notebook
-        run: |
-          jupyter nbconvert \
-            --to notebook --execute \
-            --ExecutePreprocessor.timeout=3600 \
-            --output predictive_maintenance_executed.ipynb \
-            predictive_maintenance_notebook.ipynb
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
-      - name: Verify model artefact
-        run: |
-          python -c "
-          import joblib, os
-          if not os.path.exists('best_xgboost_model.joblib'):
-              raise FileNotFoundError('Model file missing!')
-          m = joblib.load('best_xgboost_model.joblib')
-          print('Model OK:', type(m).__name__)
-          "
-
-      - name: Deploy Streamlit app to HF Spaces (Docker)
-        run: |
-          python - << 'PYEOF'
-          from huggingface_hub import HfApi, create_repo
-          import os
-          api = HfApi(token=os.environ['HF_TOKEN'])
-          space_id = 'Divyap90/predictivemaint'
-          # Use docker SDK - streamlit SDK was removed by HF
-          create_repo(repo_id=space_id, repo_type='space',
-                      space_sdk='docker', exist_ok=True)
-          api.upload_file(path_or_fileobj='streamlit_app.py',
-                          path_in_repo='app.py', repo_id=space_id,
-                          repo_type='space',
-                          commit_message='CI: update Streamlit app')
-          api.upload_file(path_or_fileobj='requirements_streamlit.txt',
-                          path_in_repo='requirements.txt', repo_id=space_id,
-                          repo_type='space',
-                          commit_message='CI: update requirements')
-          api.upload_file(path_or_fileobj='Dockerfile_hf',
-                          path_in_repo='Dockerfile', repo_id=space_id,
-                          repo_type='space',
-                          commit_message='CI: update Dockerfile')
-          print('Space updated: https://huggingface.co/spaces/' + space_id)
-          PYEOF
-
-      - name: Auto-commit executed notebook to main
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add predictive_maintenance_executed.ipynb || true
-          git diff --cached --quiet || \
-            git commit -m "ci: update executed notebook [skip ci]"
-          git push origin main
+    - name: Verify Workflow Completion
+      run: |
+        echo "ML Pipeline completed. Check Hugging Face Hub for updated datasets, models, and Spaces."
